@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>CatandeJP</title>
+<title>catandejp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -46,7 +46,7 @@ body{
 h1,h2,h3,.display{font-family:'Fraunces',serif;}
 ::selection{background:var(--gold-bright);color:var(--ink);}
 button{font-family:inherit;cursor:pointer;}
-input{font-family:inherit;}
+input,select{font-family:inherit;}
 .app{max-width:1400px;margin:0 auto;padding:18px;}
 
 /* ---------- Landing ---------- */
@@ -131,10 +131,12 @@ svg#board{width:100%;height:100%;display:block;}
 .num-token circle{fill:#f3e6c4;stroke:#8a7237;stroke-width:1.5;}
 .num-token text{font-family:'Fraunces',serif;font-weight:800;fill:#2b2007;}
 .num-token.hot text{fill:#a3271c;}
-.vspot{fill:transparent;stroke:none;cursor:pointer;}
-.vspot:hover{fill:rgba(233,184,76,.35);}
-.espot{stroke:transparent;stroke-width:14;cursor:pointer;fill:none;}
-.espot:hover{stroke:rgba(233,184,76,.35);}
+.vspot{fill:rgba(233,184,76,.4);stroke:#e9b84c;stroke-width:1.5;cursor:pointer;animation:pulseSpot 1.2s infinite alternate;}
+.vspot:hover{fill:rgba(233,184,76,.8);}
+.espot{stroke:rgba(233,184,76,.6);stroke-width:8;stroke-dasharray:6,4;cursor:pointer;fill:none;animation:pulseLine 1.2s infinite alternate;}
+.espot:hover{stroke:rgba(233,184,76,1);stroke-width:10;}
+@keyframes pulseSpot{from{transform:scale(0.9);opacity:.6;}to{transform:scale(1.1);opacity:1;}}
+@keyframes pulseLine{from{opacity:.5;}to{opacity:1;}}
 .building{cursor:default;}
 .road-line{stroke-linecap:round;}
 .robber-icon{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));}
@@ -205,6 +207,20 @@ svg#board{width:100%;height:100%;display:block;}
 <body>
 <div id="root" class="app"></div>
 <script>
+/* ============================= POLYFILL STORAGE ============================= */
+if (!window.storage) {
+  window.storage = {
+    async get(key) {
+      const val = localStorage.getItem(key);
+      return val ? { value: val } : null;
+    },
+    async set(key, value) {
+      localStorage.setItem(key, value);
+      return true;
+    }
+  };
+}
+
 /* ============================= CONFIG ============================= */
 const RES = ['wood','brick','wool','grain','ore'];
 const RES_ES = {wood:'Madera',brick:'Ladrillo',wool:'Lana',grain:'Trigo',ore:'Mineral'};
@@ -218,13 +234,14 @@ const COST = {
   city:{grain:2,ore:3},
   dev:{wool:1,grain:1,ore:1}
 };
+const MAX_PIECES = { roads: 15, settlements: 5, cities: 4 };
 const HEX_TERRAIN = ['wood','wood','wood','wood','brick','brick','brick','ore','ore','ore','wool','wool','wool','wool','grain','grain','grain','grain','desert'];
 const NUMBERS = [5,2,6,3,8,10,9,12,11,4,8,10,9,4,5,6,3,11];
 const DEV_DECK = [...Array(14).fill('knight'),...Array(5).fill('vp'),...Array(2).fill('roadbuild'),...Array(2).fill('yearplenty'),...Array(2).fill('monopoly')];
 const DEV_NAMES = {knight:'Caballero',vp:'Punto de Victoria',roadbuild:'Construcción de Caminos',yearplenty:'Año de Bonanza',monopoly:'Monopolio'};
 const DEV_ICON = {knight:'⚔️',vp:'🏆',roadbuild:'🛤️',yearplenty:'🌽',monopoly:'👑'};
 const HEX_SIZE = 52;
-const STORAGE_PREFIX = 'archipielago';
+const STORAGE_PREFIX = 'catandejp';
 
 /* ============================= UTIL ============================= */
 function uid(){return Math.random().toString(36).slice(2,10);}
@@ -246,10 +263,8 @@ function meKey(code){return `${STORAGE_PREFIX}:me:${code}`;}
 
 /* ============================= BOARD GEN ============================= */
 function buildBoard(){
-  // axial coords, radius 2
   let coords=[];
   for(let q=-2;q<=2;q++)for(let r=-2;r<=2;r++){const s=-q-r; if(Math.max(Math.abs(q),Math.abs(r),Math.abs(s))<=2) coords.push({q,r});}
-  // sort for stable-ish layout (rows)
   coords.sort((a,b)=> a.r-b.r || a.q-b.q);
   let terrains, numbers, ok=false, tries=0;
   let hexes;
@@ -261,7 +276,6 @@ function buildBoard(){
     numbers = shuffle(NUMBERS);
     nonDesert.forEach((h,i)=>h.number=numbers[i]);
     hexes.forEach(h=>{ if(h.terrain==='desert') h.number=null; });
-    // check no two 6/8 adjacent
     ok=true;
     const hot = hexes.filter(h=>h.number===6||h.number===8);
     outer: for(let i=0;i<hot.length;i++)for(let j=i+1;j<hot.length;j++){
@@ -271,9 +285,8 @@ function buildBoard(){
   hexes.forEach(h=>{const p=axialToPixel(h.q,h.r);h.cx=p.x;h.cy=p.y;});
   let desert = hexes.find(h=>h.terrain==='desert');
 
-  // vertices & edges
-  const vertices={}; // key -> {x,y,hexes:[id], id}
-  const edges={}; // key -> {a,b,id, hexes:[id]}
+  const vertices={};
+  const edges={};
   hexes.forEach(h=>{
     const corners = hexCorners(h.cx,h.cy);
     h.cornerKeys=[];
@@ -290,12 +303,12 @@ function buildBoard(){
       if(!edges[k].hexes.includes(h.id)) edges[k].hexes.push(h.id);
     }
   });
-  // vertex adjacency
+
   Object.values(edges).forEach(e=>{
     vertices[e.a].adj = vertices[e.a].adj||[]; if(!vertices[e.a].adj.includes(e.b)) vertices[e.a].adj.push(e.b);
     vertices[e.b].adj = vertices[e.b].adj||[]; if(!vertices[e.b].adj.includes(e.a)) vertices[e.b].adj.push(e.a);
   });
-  // boundary edges (belong to 1 hex)
+
   const boundary = Object.values(edges).filter(e=>e.hexes.length===1);
   const cx=0,cy=0;
   boundary.forEach(e=>{
@@ -319,7 +332,6 @@ function emptyRes(){return {wood:0,brick:0,wool:0,grain:0,ore:0};}
 function resTotal(r){return RES.reduce((s,k)=>s+(r[k]||0),0);}
 function canAfford(r,cost){return Object.keys(cost).every(k=>(r[k]||0)>=cost[k]);}
 function payCost(r,cost){Object.keys(cost).forEach(k=>r[k]-=cost[k]);}
-function refundCost(r,cost){Object.keys(cost).forEach(k=>r[k]=(r[k]||0)+cost[k]);}
 
 function vertexHasBuilding(state,vid){
   for(const p of state.players){
@@ -348,6 +360,8 @@ function legalSetupSettlementSpots(state){
 }
 function legalSettlementSpots(state,pid){
   const v=state.board.vertices;
+  const p=state.players.find(x=>x.id===pid);
+  if(p.settlements.length >= MAX_PIECES.settlements) return [];
   return Object.keys(v).filter(vid=>{
     if(vertexHasBuilding(state,vid)) return false;
     const adjOccupied=(v[vid].adj||[]).some(n=>vertexHasBuilding(state,n));
@@ -357,18 +371,19 @@ function legalSettlementSpots(state,pid){
 }
 function legalCitySpots(state,pid){
   const p=state.players.find(x=>x.id===pid);
+  if(p.cities.length >= MAX_PIECES.cities) return [];
   return p.settlements.slice();
 }
 function legalRoadSpots(state,pid,fromSetupVertex){
   const e=state.board.edges;
   const p=state.players.find(x=>x.id===pid);
+  if(!fromSetupVertex && p.roads.length >= MAX_PIECES.roads) return [];
   return Object.keys(e).filter(eid=>{
     if(edgeHasRoad(state,eid)) return false;
     const ed=e[eid];
     if(fromSetupVertex) return ed.a===fromSetupVertex||ed.b===fromSetupVertex;
     const touchesRoad = p.roads.some(rid=>{const r=e[rid]; return r.a===ed.a||r.a===ed.b||r.b===ed.a||r.b===ed.b;});
     const touchesOwnBuilding = [...p.settlements,...p.cities].some(vid=>vid===ed.a||vid===ed.b);
-    // must not extend through an opponent building blocking (simplified: allow, standard rule blocks path but not building itself)
     return touchesRoad || touchesOwnBuilding;
   });
 }
@@ -384,9 +399,8 @@ function longestRoadLength(state,pid){
     (adj[vertex]||[]).forEach(e=>{
       if(usedEdges.has(e.id)) return;
       const other = vertex===e.a?e.b:e.a;
-      // block if other vertex owned by opponent (breaks road)
       const occ = vertexHasBuilding(state,other);
-      if(occ && occ.playerId!==pid){ /* still can arrive there but not continue past */
+      if(occ && occ.playerId!==pid){
         usedEdges.add(e.id);
         best=Math.max(best,len+1);
         usedEdges.delete(e.id);
@@ -402,7 +416,7 @@ function longestRoadLength(state,pid){
 }
 
 function computeLongestRoad(state){
-  let holder=state.longestRoadPlayer, max=0, lens={};
+  let holder=state.longestRoadPlayer, lens={};
   state.players.forEach(p=>{lens[p.id]=longestRoadLength(state,p.id);});
   let bestP=null,bestLen=0;
   state.players.forEach(p=>{if(lens[p.id]>bestLen){bestLen=lens[p.id];bestP=p.id;}});
@@ -412,19 +426,11 @@ function computeLongestRoad(state){
   } else {
     state.longestRoadPlayer=null;
   }
-  state._roadLens=lens;
 }
 function computeLargestArmy(state){
   let bestP=null,bestN=2;
   state.players.forEach(p=>{if(p.knightsPlayed>bestN){bestN=p.knightsPlayed;bestP=p.id;}});
   if(bestP) state.largestArmyPlayer=bestP;
-}
-function playerVP(state,p,revealAll){
-  let vp = p.settlements.length*1 + p.cities.length*2;
-  if(state.longestRoadPlayer===p.id) vp+=2;
-  if(state.largestArmyPlayer===p.id) vp+=2;
-  vp += p.devCards.filter(c=>c.type==='vp' && (revealAll||c.played)).length;
-  return vp;
 }
 function playerVPPublic(state,p){
   let vp = p.settlements.length*1 + p.cities.length*2;
@@ -475,20 +481,19 @@ function bestRate(state,pid,resource){
 }
 
 /* ============================= APP STATE ============================= */
-let VIEW = 'landing'; // landing | lobby | game
+let VIEW = 'landing';
 let GAME_CODE = null;
-let ME = null; // {id,name,color}
-let STATE = null; // shared game state (local mirror)
+let ME = null;
+let STATE = null;
 let POLL_TIMER = null;
 let TOASTS = [];
-let PENDING_GAIN = {}; // playerId -> {res:qty} for pulse animation
+let PENDING_GAIN = {};
 let ROLLING = false;
-let modal = null; // {type:...}
-let selectedRoadFrom = null;
-let localError = '';
+let modal = null;
 
 function render(){ 
   const root=document.getElementById('root');
+  if(!root) return;
   if(VIEW==='landing') root.innerHTML = renderLanding();
   else if(VIEW==='lobby') root.innerHTML = renderLobby();
   else if(VIEW==='game') root.innerHTML = renderGame();
@@ -507,7 +512,7 @@ function renderLanding(){
   return `
   <div class="landing">
     <div class="brand-eyebrow">Comercio · Construcción · Astucia</div>
-    <h1 class="brand-title">ARCHIPIÉLAGO</h1>
+    <h1 class="brand-title">catandejp</h1>
     <p class="brand-sub">Reparte los recursos de la isla, funda tus colonias y negocia con tus amigos a distancia. Cada partida, un mapa nuevo.</p>
     <div class="landing-hexrow">${[0,1,2,3,4,5].map(()=>`<div class="mini-hex"></div>`).join('')}</div>
     <div class="landing-actions">
@@ -531,7 +536,7 @@ function renderLanding(){
         <div class="error-msg" id="joinErr"></div>
       </div>
     </div>
-    <p class="help" style="margin-top:34px;max-width:420px;">Juego no oficial, creado para jugar entre amigos. No afiliado a ninguna editorial de juegos de mesa.</p>
+    <p class="help" style="margin-top:34px;max-width:420px;">mi version de catan, chupalo mario</p>
   </div>`;
 }
 
@@ -566,7 +571,7 @@ function renderGame(){
   <div class="game">
     <div class="board-col">
       <div class="topbar">
-        <div class="title">Archipiélago</div>
+        <div class="title">catandejp</div>
         <div class="turn-pill"><div class="dot" style="background:${activeP?activeP.color:'#888'}"></div><span>${activeP?esc(activeP.name):''} ${isMyTurn?'(tu turno)':''}</span></div>
         ${renderDice()}
         <div class="badge">Sala ${STATE.code}</div>
@@ -612,8 +617,8 @@ function renderPhaseBanner(isMyTurn){
 function renderBoardSVG(){
   const hexes = STATE.board.hexes, vertices=STATE.board.vertices, edges=STATE.board.edges;
   const xs=hexes.map(h=>h.cx), ys=hexes.map(h=>h.cy);
-  const minX=Math.min(...xs)-HEX_SIZE*1.4, maxX=Math.max(...xs)+HEX_SIZE*1.4;
-  const minY=Math.min(...ys)-HEX_SIZE*1.4, maxY=Math.max(...ys)+HEX_SIZE*1.4;
+  const minX=Math.min(...xs)-HEX_SIZE*1.6, maxX=Math.max(...xs)+HEX_SIZE*1.6;
+  const minY=Math.min(...ys)-HEX_SIZE*1.6, maxY=Math.max(...ys)+HEX_SIZE*1.6;
   const w=maxX-minX, h=maxY-minY;
 
   let hexSvg = hexes.map(hx=>{
@@ -637,23 +642,23 @@ function renderBoardSVG(){
     const mx=(va.x+vb.x)/2, my=(va.y+vb.y)/2;
     const dx = mx - 0, dy = my - 0;
     const dist = Math.sqrt(dx*dx+dy*dy);
-    const ox = mx + dx/dist*22, oy = my + dy/dist*22;
-    const label = port.type==='3:1'?'3:1':`2:1`;
+    const ox = mx + dx/dist*26, oy = my + dy/dist*26;
+    const label = port.type==='3:1'?'3:1':'2:1';
     const icon = port.type==='3:1'?'⚓':RES_ICON[port.type];
-    return `<g class="port-badge"><line x1="${mx}" y1="${my}" x2="${ox}" y2="${oy}" stroke="#f3e6c4" stroke-width="1.5" stroke-dasharray="3,2"/>
-      <circle cx="${ox}" cy="${oy}" r="15" fill="${port.type==='3:1'?'#3f6f80':RES_COLOR[port.type].replace('var(--','').replace(')','')}" style="fill:${port.type==='3:1'?'#3f6f80':HEX_FILL[port.type]}"/>
+    return `<g class="port-badge">
+      <line x1="${va.x}" y1="${va.y}" x2="${ox}" y2="${oy}" stroke="#f3e6c4" stroke-width="2" stroke-dasharray="3,2"/>
+      <line x1="${vb.x}" y1="${vb.y}" x2="${ox}" y2="${oy}" stroke="#f3e6c4" stroke-width="2" stroke-dasharray="3,2"/>
+      <circle cx="${ox}" cy="${oy}" r="15" fill="${port.type==='3:1'?'#3f6f80':HEX_FILL[port.type]}"/>
       <text x="${ox}" y="${oy-1}" text-anchor="middle" font-size="11">${icon}</text>
       <text x="${ox}" y="${oy+11}" text-anchor="middle" font-size="8">${label}</text>
       </g>`;
   }).join('');
 
-  // roads
   let roadSvg = STATE.players.map(p=>p.roads.map(eid=>{
     const e=edges[eid]; const va=vertices[e.a], vb=vertices[e.b];
     return `<line class="road-line" x1="${va.x}" y1="${va.y}" x2="${vb.x}" y2="${vb.y}" stroke="${p.color}" stroke-width="7"/>`;
   }).join('')).join('');
 
-  // legal spots (only relevant player's turn)
   let ghostRoads='', ghostVerts='';
   const clickCtx = getClickContext();
   if(clickCtx.roadSpots){
@@ -669,7 +674,6 @@ function renderBoardSVG(){
     }).join('');
   }
 
-  // buildings
   let buildSvg = STATE.players.map(p=>{
     let s = p.settlements.map(vid=>{
       const v=vertices[vid];
@@ -700,7 +704,7 @@ function getClickContext(){
     if(STATE.setupSubPhase==='settlement') return {vertexSpots: legalSetupSettlementSpots(STATE)};
     if(STATE.setupSubPhase==='road') return {roadSpots: legalRoadSpots(STATE, ME.id, STATE.lastSetupVertex)};
   }
-  if(STATE.phase==='play' && isMyTurn && !STATE.pendingDiscards_active){
+  if(STATE.phase==='play' && isMyTurn && !Object.keys(STATE.pendingDiscards||{}).length){
     if(modal && modal.type==='buildRoad') return {roadSpots: legalRoadSpots(STATE, ME.id)};
     if(modal && modal.type==='buildSettlement') return {vertexSpots: legalSettlementSpots(STATE,ME.id)};
     if(modal && modal.type==='buildCity') return {vertexSpots: legalCitySpots(STATE,ME.id)};
@@ -717,8 +721,13 @@ function renderMyPanel(me,isMyTurn){
       ${RES.map(r=>`<div class="res-cell ${r} ${PENDING_GAIN[me.id]&&PENDING_GAIN[me.id][r]?'pulse':''}"><span class="ic">${RES_ICON[r]}</span><span class="n">${me.resources[r]}</span></div>`).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px;opacity:.75;">
-      <span>Cartas de desarrollo: ${me.devCards.length}</span>
+      <span>Cartas dev: ${me.devCards.length}</span>
       <span>Puntos: ${playerVPTotal(STATE,me)}</span>
+    </div>
+    <div style="margin-top:6px;font-size:11px;opacity:.6;display:flex;gap:8px;">
+      <span>🛣️ ${me.roads.length}/${MAX_PIECES.roads}</span>
+      <span>🏠 ${me.settlements.length}/${MAX_PIECES.settlements}</span>
+      <span>🏰 ${me.cities.length}/${MAX_PIECES.cities}</span>
     </div>
     ${me.devCards.length?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
       ${me.devCards.map((c,i)=>`<div class="dc-card"><span>${DEV_ICON[c.type]}</span><span class="nm">${DEV_NAMES[c.type]}</span>
@@ -735,7 +744,10 @@ function renderActionsPanel(me,isMyTurn){
   if(STATE.pendingDiscards && STATE.pendingDiscards[ME.id]) return '';
   if(STATE.pendingRobberMove) return `<div class="panel"><h4>Acciones</h4><p style="font-size:13px;opacity:.75">Haz clic en una casilla del tablero para mover al ladrón.</p></div>`;
   const needsRoll = !STATE.rolledThisTurn;
-  const rC=canAfford(me.resources,COST.road), sC=canAfford(me.resources,COST.settlement), cC=canAfford(me.resources,COST.city), dC=canAfford(me.resources,COST.dev) && STATE.devDeck.length>0;
+  const rC=canAfford(me.resources,COST.road) && me.roads.length<MAX_PIECES.roads;
+  const sC=canAfford(me.resources,COST.settlement) && me.settlements.length<MAX_PIECES.settlements;
+  const cC=canAfford(me.resources,COST.city) && me.cities.length<MAX_PIECES.cities;
+  const dC=canAfford(me.resources,COST.dev) && STATE.devDeck.length>0;
   return `<div class="panel">
     <h4>Acciones</h4>
     <div class="actions-grid">
@@ -753,7 +765,7 @@ function renderActionsPanel(me,isMyTurn){
 
 function renderPlayersPanel(){
   return `<div class="panel"><h4>Jugadores</h4><div class="players-mini">
-    ${STATE.players.map((p,i)=>{
+    ${STATE.players.map((p)=>{
       const active = STATE.players[STATE.turnOrder?STATE.turnOrder[STATE.turnIndex]:STATE.turnIndex]?.id===p.id;
       return `<div class="pm-row ${active?'active':''}"><div class="dot" style="background:${p.color}"></div>
       <span>${esc(p.name)}</span>
@@ -844,7 +856,6 @@ function wrapModal(title, body){
 
 /* ============================= EVENT HANDLERS ============================= */
 function attachHandlers(){
-  // landing
   qsAll('#createColorRow .swatch').forEach(s=>s.onclick=()=>{createColor=s.dataset.color;render();});
   qsAll('#joinColorRow .swatch').forEach(s=>s.onclick=()=>{joinColor=s.dataset.color;render();});
   const cN=q('#createNameInp'); if(cN){cN.oninput=e=>createName=e.target.value; cN.onkeydown=e=>{if(e.key==='Enter')doCreate();};}
@@ -853,11 +864,9 @@ function attachHandlers(){
   const bC=q('#btnCreate'); if(bC) bC.onclick=doCreate;
   const bJ=q('#btnJoin'); if(bJ) bJ.onclick=doJoin;
 
-  // lobby
   const bS=q('#btnStart'); if(bS) bS.onclick=doStart;
   const bL=q('#btnLeaveLobby'); if(bL) bL.onclick=()=>{VIEW='landing';STATE=null;GAME_CODE=null;stopPolling();render();};
 
-  // game svg clicks
   qsAll('[data-vertex]').forEach(el=>el.onclick=()=>onVertexClick(el.dataset.vertex));
   qsAll('[data-road]').forEach(el=>el.onclick=()=>onRoadClick(el.dataset.road));
   qsAll('[data-robber-hex]').forEach(el=>{ if(el.dataset.robberHex) el.onclick=()=>onRobberHexClick(el.dataset.robberHex); });
@@ -892,18 +901,22 @@ function attachHandlers(){
   const btnCancelTrade=q('#btnCancelTrade'); if(btnCancelTrade) btnCancelTrade.onclick=doCancelTrade;
 
   qsAll('[data-play-dev]').forEach(el=>el.onclick=()=>doPlayDev(parseInt(el.dataset.playDev)));
+
+  qsAll('[data-yp-inc]').forEach(el=>el.onclick=()=>{modal.picks=modal.picks||emptyRes(); if(resTotal(modal.picks)<2) modal.picks[el.dataset.ypInc]++; modal.devBody=yearPlentyBody(); render();});
+  qsAll('[data-yp-dec]').forEach(el=>el.onclick=()=>{if(modal.picks[el.dataset.ypDec]>0)modal.picks[el.dataset.ypDec]--; modal.devBody=yearPlentyBody(); render();});
+  const btnYP=q('#btnConfirmYP'); if(btnYP) btnYP.onclick=doYearPlenty;
+  qsAll('[data-mono-pick]').forEach(el=>el.onclick=()=>doMonopoly(el.dataset.monoPick));
 }
 function q(sel){return document.querySelector(sel);}
 function qsAll(sel){return Array.from(document.querySelectorAll(sel));}
 
-/* ============================= ACTIONS (mutate + save) ============================= */
+/* ============================= ACTIONS ============================= */
 async function withState(fn){
-  // fetch freshest before mutating to reduce race conditions
   const fresh = await sGet(gameKey(GAME_CODE), true);
   if(fresh) STATE = fresh;
   const s = deepClone(STATE);
   const res = fn(s);
-  if(res===false) return; // aborted
+  if(res===false) return;
   STATE = s;
   await sSet(gameKey(GAME_CODE), s, true);
   render();
@@ -965,7 +978,6 @@ async function doStart(){
   });
 }
 
-/* setup placement */
 async function onVertexClick(vid){
   if(!STATE) return;
   const activeP = STATE.players[STATE.turnOrder ? STATE.turnOrder[STATE.turnIndex]: STATE.turnIndex];
@@ -984,6 +996,7 @@ async function onVertexClick(vid){
     await withState(s=>{
       const p=s.players.find(x=>x.id===ME.id);
       if(!canAfford(p.resources,COST.settlement)) return false;
+      if(p.settlements.length >= MAX_PIECES.settlements) return false;
       payCost(p.resources,COST.settlement);
       p.settlements.push(vid);
       computeLongestRoad(s);
@@ -998,6 +1011,7 @@ async function onVertexClick(vid){
       const p=s.players.find(x=>x.id===ME.id);
       if(!p.settlements.includes(vid)) return false;
       if(!canAfford(p.resources,COST.city)) return false;
+      if(p.cities.length >= MAX_PIECES.cities) return false;
       payCost(p.resources,COST.city);
       p.settlements = p.settlements.filter(v=>v!==vid);
       p.cities.push(vid);
@@ -1017,7 +1031,6 @@ async function onRoadClick(eid){
       const p=s.players.find(x=>x.id===ME.id);
       p.roads.push(eid);
       log(s,`${p.name} colocó un camino inicial.`);
-      // second round: grant resources
       const roundTwo = s.turnIndex >= s.players.length;
       if(roundTwo){
         const lastVid = s.lastSetupVertex;
@@ -1029,7 +1042,6 @@ async function onRoadClick(eid){
         });
       }
       s.lastSetupVertex=null;
-      // advance
       s.turnIndex++;
       if(s.turnIndex>=s.turnOrder.length){
         s.phase='play';
@@ -1046,9 +1058,10 @@ async function onRoadClick(eid){
     await withState(s=>{
       const p=s.players.find(x=>x.id===ME.id);
       if(modal.type==='buildRoad'){
-        if(!canAfford(p.resources,COST.road)) return false;
+        if(!canAfford(p.resources,COST.road) || p.roads.length >= MAX_PIECES.roads) return false;
         payCost(p.resources,COST.road);
       } else {
+        if(p.roads.length >= MAX_PIECES.roads) return false;
         modal.roadsLeft = (modal.roadsLeft==null?2:modal.roadsLeft)-1;
       }
       p.roads.push(eid);
@@ -1068,7 +1081,6 @@ async function onRobberHexClick(hid){
     const activeP = s.players[s.turnOrder?s.turnOrder[s.turnIndex]:s.turnIndex];
     if(activeP.id!==ME.id || !s.pendingRobberMove) return false;
     s.board.robberHex = hid;
-    const vObj = s.board.vertices;
     const hx = s.board.hexes.find(h=>h.id===hid);
     const victims = new Set();
     hx.cornerKeys.forEach(vid=>{
@@ -1125,6 +1137,8 @@ async function doEndTurn(){
   await withState(s=>{
     const activeP = s.players[s.turnOrder?s.turnOrder[s.turnIndex]:s.turnIndex];
     if(activeP.id!==ME.id) return false;
+    checkWin(s);
+    if(s.phase==='end') return;
     s.turnIndex = (s.turnIndex+1) % s.players.length;
     s.rolledThisTurn=false;
     s.devCardPlayedThisTurn=false;
@@ -1252,15 +1266,7 @@ function monopolyBody(){
   return `<p class="help">Elige un recurso: todos los demás jugadores te entregan todas sus cartas de ese tipo.</p>
   <div class="res-picker">${RES.map(r=>`<button class="btn ghost small" data-mono-pick="${r}" style="margin-bottom:6px;">${RES_ICON[r]} ${RES_ES[r]}</button>`).join('')}</div>`;
 }
-// extend attachHandlers dynamically for dev-card sub modals
-const _origAttach = attachHandlers;
-attachHandlers = function(){
-  _origAttach();
-  qsAll('[data-yp-inc]').forEach(el=>el.onclick=()=>{modal.picks=modal.picks||emptyRes(); if(resTotal(modal.picks)<2) modal.picks[el.dataset.ypInc]++; modal.devBody=yearPlentyBody(); render();});
-  qsAll('[data-yp-dec]').forEach(el=>el.onclick=()=>{if(modal.picks[el.dataset.ypDec]>0)modal.picks[el.dataset.ypDec]--; modal.devBody=yearPlentyBody(); render();});
-  const btnYP=q('#btnConfirmYP'); if(btnYP) btnYP.onclick=doYearPlenty;
-  qsAll('[data-mono-pick]').forEach(el=>el.onclick=()=>doMonopoly(el.dataset.monoPick));
-};
+
 async function doYearPlenty(){
   const picks = modal.picks; const idx=modal.devIdx;
   await withState(s=>{

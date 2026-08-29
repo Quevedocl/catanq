@@ -204,7 +204,7 @@ svg#board{width:100%;height:100%;display:block;}
 ::-webkit-scrollbar-track{background:transparent;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div id="root" class="app"></div>
@@ -221,11 +221,9 @@ const firebaseConfig = {
   measurementId: "G-6HZL21322P"
 };
 
-// Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Adaptador de almacenamiento en la nube en tiempo real
 window.storage = {
   async get(key) {
     const cleanKey = key.replace(/:/g, '_');
@@ -239,7 +237,6 @@ window.storage = {
     return true;
   }
 };
-}
 
 /* ============================= CONFIG ============================= */
 const RES = ['wood','brick','wool','grain','ore'];

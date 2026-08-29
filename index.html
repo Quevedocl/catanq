@@ -502,7 +502,7 @@ let VIEW = 'landing';
 let GAME_CODE = null;
 let ME = null;
 let STATE = null;
-let POLL_TIMER = null;
+let FB_LISTENER = null;
 let TOASTS = [];
 let PENDING_GAIN = {};
 let ROLLING = false;
@@ -632,6 +632,7 @@ function renderPhaseBanner(isMyTurn){
 }
 
 function renderBoardSVG(){
+  if(!STATE.board || !STATE.board.hexes) return '';
   const hexes = STATE.board.hexes, vertices=STATE.board.vertices, edges=STATE.board.edges;
   const xs=hexes.map(h=>h.cx), ys=hexes.map(h=>h.cy);
   const minX=Math.min(...xs)-HEX_SIZE*1.6, maxX=Math.max(...xs)+HEX_SIZE*1.6;
@@ -742,7 +743,7 @@ function renderMyPanel(me,isMyTurn){
       <span>Puntos: ${playerVPTotal(STATE,me)}</span>
     </div>
     <div style="margin-top:6px;font-size:11px;opacity:.6;display:flex;gap:8px;">
-      <span>🛣️ ${me.roads.length}/${MAX_PIECES.roads}</span>
+      <span>MV ${me.roads.length}/${MAX_PIECES.roads}</span>
       <span>🏠 ${me.settlements.length}/${MAX_PIECES.settlements}</span>
       <span>🏰 ${me.cities.length}/${MAX_PIECES.cities}</span>
     </div>
@@ -882,7 +883,7 @@ function attachHandlers(){
   const bJ=q('#btnJoin'); if(bJ) bJ.onclick=doJoin;
 
   const bS=q('#btnStart'); if(bS) bS.onclick=doStart;
-  const bL=q('#btnLeaveLobby'); if(bL) bL.onclick=()=>{VIEW='landing';STATE=null;GAME_CODE=null;stopPolling();render();};
+  const bL=q('#btnLeaveLobby'); if(bL) bL.onclick=()=>{VIEW='landing';STATE=null;GAME_CODE=null;stopRealtimeListener();render();};
 
   qsAll('[data-vertex]').forEach(el=>el.onclick=()=>onVertexClick(el.dataset.vertex));
   qsAll('[data-road]').forEach(el=>el.onclick=()=>onRoadClick(el.dataset.road));
@@ -957,7 +958,7 @@ async function doCreate(){
   await sSet(meKey(code), me, false);
   await sSet(gameKey(code), state, true);
   STATE = state; VIEW='lobby';
-  startPolling();
+  startRealtimeListener();
   render();
 }
 function playerObj(me){
@@ -979,7 +980,7 @@ async function doJoin(){
   await sSet(meKey(code), me, false);
   await sSet(gameKey(code), state, true);
   ME=me; GAME_CODE=code; STATE=state; VIEW='lobby';
-  startPolling();
+  startRealtimeListener();
   render();
 }
 async function doStart(){
@@ -991,7 +992,6 @@ async function doStart(){
     s.turnIndex=0;
     s.setupSubPhase='settlement';
     log(s,'¡La partida ha comenzado! Fase de colocación inicial.');
-    VIEW='game';
   });
 }
 
@@ -1313,21 +1313,27 @@ function checkWin(s){
   if(w){ s.phase='end'; s.winner=w.id; log(s,`🏆 ${w.name} alcanzó 10 puntos de victoria y gana la partida.`); }
 }
 
-/* ============================= POLLING ============================= */
-function startPolling(){
-  stopPolling();
-  POLL_TIMER = setInterval(async ()=>{
-    if(!GAME_CODE) return;
-    const fresh = await sGet(gameKey(GAME_CODE), true);
+/* ============================= REALTIME LISTENER ============================= */
+function startRealtimeListener(){
+  stopRealtimeListener();
+  if(!GAME_CODE) return;
+  const cleanKey = gameKey(GAME_CODE).replace(/:/g, '_');
+  FB_LISTENER = db.ref(cleanKey).on('value', (snapshot)=>{
+    const fresh = snapshot.val();
     if(fresh){
-      const changed = JSON.stringify(fresh)!==JSON.stringify(STATE);
       STATE = fresh;
       if(VIEW==='lobby' && fresh.phase!=='lobby'){ VIEW='game'; }
-      if(changed) render();
+      render();
     }
-  }, 2200);
+  });
 }
-function stopPolling(){ if(POLL_TIMER) clearInterval(POLL_TIMER); POLL_TIMER=null; }
+function stopRealtimeListener(){
+  if(FB_LISTENER && GAME_CODE){
+    const cleanKey = gameKey(GAME_CODE).replace(/:/g, '_');
+    db.ref(cleanKey).off('value');
+    FB_LISTENER = null;
+  }
+}
 
 /* ============================= INIT ============================= */
 render();

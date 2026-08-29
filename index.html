@@ -49,6 +49,19 @@ button{font-family:inherit;cursor:pointer;}
 input,select{font-family:inherit;}
 .app{max-width:1400px;margin:0 auto;padding:18px;}
 
+/* ---------- LOGO COMPONENT ---------- */
+.logo-container{display:inline-flex;align-items:center;gap:12px;user-select:none;}
+.logo-icon{width:42px;height:48px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));}
+.brand-title-wrap{display:flex;flex-direction:column;text-align:left;}
+.brand-eyebrow{letter-spacing:.35em;text-transform:uppercase;font-size:11px;color:var(--gold-bright);opacity:.85;margin-bottom:4px;font-weight:600;}
+.brand-title{font-size:clamp(42px,8vw,84px);font-weight:900;margin:0 0 6px;line-height:.95;
+  background:linear-gradient(180deg,#f6ecd2,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.35));
+}
+.brand-title-sm{font-size:22px;font-weight:900;line-height:1;
+  background:linear-gradient(180deg,#f6ecd2,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
 /* ---------- Landing ---------- */
 .landing{
   min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;
@@ -59,13 +72,8 @@ input,select{font-family:inherit;}
   background-image:radial-gradient(circle,var(--gold-bright) 1px, transparent 1.4px);
   background-size:26px 26px;
 }
-.brand-eyebrow{letter-spacing:.35em;text-transform:uppercase;font-size:11px;color:var(--gold-bright);opacity:.85;margin-bottom:10px;font-weight:600;}
-.brand-title{font-size:clamp(42px,8vw,84px);font-weight:900;margin:0 0 6px;line-height:.95;
-  background:linear-gradient(180deg,#f6ecd2,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 6px 18px rgba(0,0,0,.35));
-}
-.brand-sub{color:#c9d9de;opacity:.75;max-width:480px;margin:0 auto 40px;font-size:15px;}
-.landing-hexrow{display:flex;gap:8px;margin-bottom:44px;}
+.brand-sub{color:#c9d9de;opacity:.75;max-width:480px;margin:16px auto 32px;font-size:15px;}
+.landing-hexrow{display:flex;gap:8px;margin-bottom:36px;}
 .mini-hex{width:34px;height:38px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);animation:bob 3.4s ease-in-out infinite;}
 .mini-hex:nth-child(odd){animation-delay:.5s}
 .mini-hex:nth-child(1){background:var(--wood)}
@@ -120,7 +128,6 @@ input,select{font-family:inherit;}
 @media (max-width:900px){.game{grid-template-columns:1fr;height:auto;}}
 .board-col{display:flex;flex-direction:column;gap:10px;min-width:0;}
 .topbar{display:flex;align-items:center;gap:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 16px;flex-wrap:wrap;}
-.topbar .title{font-weight:800;font-family:'Fraunces',serif;color:var(--gold-bright);font-size:18px;margin-right:auto;}
 .turn-pill{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:999px;padding:6px 14px 6px 8px;border:1px solid var(--line);}
 .turn-pill .dot{width:12px;height:12px;}
 .board-wrap{position:relative;flex:1;background:radial-gradient(ellipse at center, var(--sea-3), var(--sea-1) 75%);border-radius:16px;border:1px solid var(--line);overflow:hidden;box-shadow:inset 0 0 60px rgba(0,0,0,.4);min-height:420px;}
@@ -209,6 +216,92 @@ svg#board{width:100%;height:100%;display:block;}
 <body>
 <div id="root" class="app"></div>
 <script>
+/* ============================= AUDIO SYNTHESIZER ============================= */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playSound(type) {
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    if (type === 'dice') {
+      for (let i = 0; i < 5; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150 + Math.random() * 200, now + i * 0.08);
+        gain.gain.setValueAtTime(0.15, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.06);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.06);
+      }
+    } else if (type === 'build') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } else if (type === 'card') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.setValueAtTime(880, now + 0.08); // A5
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else if (type === 'turn') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } else if (type === 'win') {
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.25, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.3);
+      });
+    }
+  } catch (e) { console.error(e); }
+}
+
 /* ============================= FIREBASE REALTIME DB ============================= */
 const firebaseConfig = {
   apiKey: "AIzaSyAbwfbUs-vpn1q_HcJhg7Jv4PZXLIp830",
@@ -262,6 +355,23 @@ const DEV_NAMES = {knight:'Caballero',vp:'Punto de Victoria',roadbuild:'Construc
 const DEV_ICON = {knight:'⚔️',vp:'🏆',roadbuild:'🛤️',yearplenty:'🌽',monopoly:'👑'};
 const HEX_SIZE = 52;
 const STORAGE_PREFIX = 'catandejp';
+
+/* ============================= LOGO SVG GENERATOR ============================= */
+function renderLogoSVG(size = 42) {
+  return `<svg class="logo-icon" style="width:${size}px;height:${Math.round(size*1.14)}px" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 0L100 28.8675V86.6025L50 115.47L0 86.6025V28.8675L50 0Z" fill="url(#logo_grad)"/>
+    <path d="M50 8L91 31.5V78.5L50 102L9 78.5V31.5L50 8Z" stroke="#e9b84c" stroke-width="4" stroke-dasharray="6 4"/>
+    <path d="M35 75L50 45L65 75H35Z" fill="#2f6d43"/>
+    <path d="M50 45L65 75H50V45Z" fill="#245734"/>
+    <circle cx="50" cy="34" r="7" fill="#e9b84c"/>
+    <defs>
+      <linearGradient id="logo_grad" x1="50" y1="0" x2="50" y2="115.47" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#164358"/>
+        <stop offset="1" stop-color="#0a2029"/>
+      </linearGradient>
+    </defs>
+  </svg>`;
+}
 
 /* ============================= UTIL ============================= */
 function uid(){return Math.random().toString(36).slice(2,10);}
@@ -511,6 +621,7 @@ let TOASTS = [];
 let PENDING_GAIN = {};
 let ROLLING = false;
 let modal = null;
+let lastTurnIndex = null;
 
 function render(){ 
   const root=document.getElementById('root');
@@ -532,8 +643,13 @@ let joinName='', joinColor=COLORS[1], joinCode='';
 function renderLanding(){
   return `
   <div class="landing">
-    <div class="brand-eyebrow">Comercio · Construcción · Astucia</div>
-    <h1 class="brand-title">catandejp</h1>
+    <div class="logo-container" style="margin-bottom:12px">
+      ${renderLogoSVG(58)}
+      <div class="brand-title-wrap">
+        <div class="brand-eyebrow">Comercio · Construcción · Astucia</div>
+        <h1 class="brand-title">catandejp</h1>
+      </div>
+    </div>
     <p class="brand-sub">Reparte los recursos de la isla, funda tus colonias y negocia con tus amigos a distancia. Cada partida, un mapa nuevo.</p>
     <div class="landing-hexrow">${[0,1,2,3,4,5].map(()=>`<div class="mini-hex"></div>`).join('')}</div>
     <div class="landing-actions">
@@ -569,6 +685,9 @@ function renderLobby(){
   return `
   <div class="lobby-wrap">
     <div class="card">
+      <div style="display:flex;justify-content:center;margin-bottom:12px;">
+        ${renderLogoSVG(40)}
+      </div>
       <h3 style="text-align:center">Sala de espera</h3>
       <div class="lobby-code">${STATE.code}</div>
       <p style="text-align:center;opacity:.65;font-size:13px;margin-top:0">Comparte este código para que se unan (2 a 4 jugadores)</p>
@@ -592,7 +711,10 @@ function renderGame(){
   <div class="game">
     <div class="board-col">
       <div class="topbar">
-        <div class="title">catandejp</div>
+        <div class="logo-container" style="margin-right:auto">
+          ${renderLogoSVG(28)}
+          <span class="brand-title-sm">catandejp</span>
+        </div>
         <div class="turn-pill"><div class="dot" style="background:${activeP?activeP.color:'#888'}"></div><span>${activeP?esc(activeP.name):''} ${isMyTurn?'(tu turno)':''}</span></div>
         ${renderDice()}
         <div class="badge">Sala ${STATE.code}</div>
@@ -879,6 +1001,8 @@ function wrapModal(title, body){
 
 /* ============================= EVENT HANDLERS ============================= */
 function attachHandlers(){
+  document.body.onclick = () => initAudio();
+
   qsAll('#createColorRow .swatch').forEach(s=>s.onclick=()=>{createColor=s.dataset.color;render();});
   qsAll('#joinColorRow .swatch').forEach(s=>s.onclick=()=>{joinColor=s.dataset.color;render();});
   const cN=q('#createNameInp'); if(cN){cN.oninput=e=>createName=e.target.value; cN.onkeydown=e=>{if(e.key==='Enter')doCreate();};}
@@ -1018,6 +1142,7 @@ async function onVertexClick(vid){
       s.setupSubPhase='road';
       log(s, `${p.name} colocó un poblado inicial.`);
     });
+    playSound('build');
     return;
   }
   if(STATE.phase==='play' && modal && modal.type==='buildSettlement'){
@@ -1032,6 +1157,7 @@ async function onVertexClick(vid){
       log(s,`${p.name} construyó un poblado.`);
       checkWin(s);
     });
+    playSound('build');
     modal=null;
     return;
   }
@@ -1049,6 +1175,7 @@ async function onVertexClick(vid){
       log(s,`${p.name} mejoró un poblado a ciudad.`);
       checkWin(s);
     });
+    playSound('build');
     modal=null;
     return;
   }
@@ -1084,6 +1211,7 @@ async function onRoadClick(eid){
         s.setupSubPhase='settlement';
       }
     });
+    playSound('build');
     return;
   }
   if(STATE.phase==='play' && modal && (modal.type==='buildRoad'||modal.type==='roadBuildingCard')){
@@ -1102,6 +1230,7 @@ async function onRoadClick(eid){
       log(s,`${p.name} construyó un camino.`);
       checkWin(s);
     });
+    playSound('build');
     if(modal && modal.type==='roadBuildingCard'){
       if(modal.roadsLeft<=0){ modal=null; }
     } else modal=null;
@@ -1141,6 +1270,7 @@ async function onRobberHexClick(hid){
 
 async function doRoll(){
   ROLLING=true; render();
+  playSound('dice');
   await new Promise(r=>setTimeout(r,480));
   await withState(s=>{
     const activeP = s.players[s.turnOrder?s.turnOrder[s.turnIndex]:s.turnIndex];
@@ -1190,6 +1320,7 @@ async function doBuyDev(){
     log(s,`${p.name} compró una carta de desarrollo.`);
     checkWin(s);
   });
+  playSound('card');
 }
 async function doDiscard(){
   const need = STATE.pendingDiscards[ME.id];
@@ -1271,6 +1402,7 @@ async function doPlayDev(idx){
       log(s,`${p.name} jugó un Caballero.`);
       checkWin(s);
     });
+    playSound('card');
     return;
   }
   if(card.type==='roadbuild'){
@@ -1280,6 +1412,7 @@ async function doPlayDev(idx){
       s.devCardPlayedThisTurn=true;
       log(s,`${p.name} jugó Construcción de Caminos.`);
     });
+    playSound('card');
     modal={type:'roadBuildingCard', roadsLeft:2, devBody:'<p class="help">Coloca hasta 2 caminos gratis en el tablero.</p>'};
     render();
     return;
@@ -1315,6 +1448,7 @@ async function doYearPlenty(){
     RES.forEach(r=>p.resources[r]=(p.resources[r]||0)+(picks[r]||0));
     log(s,`${p.name} jugó Año de Bonanza y recibió ${RES.filter(r=>picks[r]>0).map(r=>`${picks[r]}${RES_ICON[r]}`).join(' ')}.`);
   });
+  playSound('card');
   modal=null;
 }
 async function doMonopoly(resType){
@@ -1328,11 +1462,16 @@ async function doMonopoly(resType){
     p.resources[resType]=(p.resources[resType]||0)+total;
     log(s,`${p.name} jugó Monopolio sobre ${RES_ES[resType]} y obtuvo ${total} cartas.`);
   });
+  playSound('card');
   modal=null;
 }
 function checkWin(s){
   const w = s.players.find(p=>playerVPTotal(s,p)>=10);
-  if(w){ s.phase='end'; s.winner=w.id; log(s,`🏆 ${w.name} alcanzó 10 puntos de victoria y gana la partida.`); }
+  if(w){ 
+    s.phase='end'; 
+    s.winner=w.id; 
+    log(s,`🏆 ${w.name} alcanzó 10 puntos de victoria y gana la partida.`);
+  }
 }
 
 /* ============================= REALTIME LISTENER ============================= */
@@ -1344,7 +1483,24 @@ function startRealtimeListener(){
   FB_REF.on('value', (snapshot)=>{
     const fresh = snapshot.val();
     if(fresh){
-      STATE = typeof fresh === 'string' ? JSON.parse(fresh) : fresh;
+      const nextState = typeof fresh === 'string' ? JSON.parse(fresh) : fresh;
+      
+      // Sonidos de notificaciones remotas
+      if (STATE && ME) {
+        if (nextState.turnIndex !== lastTurnIndex) {
+          const activeP = nextState.players[nextState.turnOrder ? nextState.turnOrder[nextState.turnIndex] : nextState.turnIndex];
+          if (activeP && activeP.id === ME.id) {
+            playSound('turn');
+          }
+        }
+        if (nextState.phase === 'end' && STATE.phase !== 'end') {
+          playSound('win');
+        }
+      }
+
+      STATE = nextState;
+      lastTurnIndex = STATE.turnIndex;
+
       if(STATE.phase !== 'lobby' && VIEW === 'lobby'){ 
         VIEW = 'game'; 
       }

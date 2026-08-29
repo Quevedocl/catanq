@@ -51,7 +51,7 @@ input,select{font-family:inherit;}
 
 /* ---------- LOGO COMPONENT ---------- */
 .logo-container{display:inline-flex;align-items:center;gap:12px;user-select:none;}
-.logo-icon{width:42px;height:48px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));}
+.logo-icon{filter:drop-shadow(0 6px 12px rgba(0,0,0,0.4));}
 .brand-title-wrap{display:flex;flex-direction:column;text-align:left;}
 .brand-eyebrow{letter-spacing:.35em;text-transform:uppercase;font-size:11px;color:var(--gold-bright);opacity:.85;margin-bottom:4px;font-weight:600;}
 .brand-title{font-size:clamp(42px,8vw,84px);font-weight:900;margin:0 0 6px;line-height:.95;
@@ -264,8 +264,8 @@ function playSound(type) {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.setValueAtTime(880, now + 0.08); // A5
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.setValueAtTime(880, now + 0.08);
       gain.gain.setValueAtTime(0.15, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
       osc.connect(gain);
@@ -276,8 +276,8 @@ function playSound(type) {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.connect(gain);
@@ -357,19 +357,65 @@ const HEX_SIZE = 52;
 const STORAGE_PREFIX = 'catandejp';
 
 /* ============================= LOGO SVG GENERATOR ============================= */
-function renderLogoSVG(size = 42) {
-  return `<svg class="logo-icon" style="width:${size}px;height:${Math.round(size*1.14)}px" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M50 0L100 28.8675V86.6025L50 115.47L0 86.6025V28.8675L50 0Z" fill="url(#logo_grad)"/>
-    <path d="M50 8L91 31.5V78.5L50 102L9 78.5V31.5L50 8Z" stroke="#e9b84c" stroke-width="4" stroke-dasharray="6 4"/>
-    <path d="M35 75L50 45L65 75H35Z" fill="#2f6d43"/>
-    <path d="M50 45L65 75H50V45Z" fill="#245734"/>
-    <circle cx="50" cy="34" r="7" fill="#e9b84c"/>
+function renderLogoSVG(size = 80) {
+  return `<svg class="logo-icon" style="width:${size}px;height:${size}px" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="logo_grad" x1="50" y1="0" x2="50" y2="115.47" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#164358"/>
-        <stop offset="1" stop-color="#0a2029"/>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0b2e3d"/>
+        <stop offset="100%" stop-color="#071b24"/>
       </linearGradient>
+      
+      <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#f6ecd2"/>
+        <stop offset="50%" stop-color="#e9b84c"/>
+        <stop offset="100%" stop-color="#c99a3a"/>
+      </linearGradient>
+
+      <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3a8252"/>
+        <stop offset="100%" stop-color="#1b4528"/>
+      </linearGradient>
+
+      <linearGradient id="brickGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#d6623e"/>
+        <stop offset="100%" stop-color="#8a341b"/>
+      </linearGradient>
+
+      <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
+      </filter>
     </defs>
+
+    <circle cx="250" cy="250" r="230" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="8" filter="url(#dropShadow)"/>
+    
+    <g filter="url(#dropShadow)">
+      <polygon points="250,60 390,140 390,300 250,380 110,300 110,140" fill="#2f6d43" stroke="url(#goldGrad)" stroke-width="6"/>
+      <polygon points="250,75 375,148 375,292 250,365 125,292 125,148" fill="none" stroke="#e9b84c" stroke-width="2" stroke-dasharray="8 6" opacity="0.6"/>
+    </g>
+
+    <polygon points="180,280 220,200 260,280" fill="url(#woodGrad)"/>
+    <polygon points="230,290 280,180 330,290" fill="url(#brickGrad)"/>
+    <polygon points="220,200 250,180 280,200 250,230" fill="#e9b84c" opacity="0.3"/>
+
+    <path d="M200,160 L220,120 L250,140 L280,120 L300,160 Z" fill="url(#goldGrad)" filter="url(#dropShadow)"/>
+    <circle cx="200" cy="160" r="5" fill="#fff"/>
+    <circle cx="250" cy="140" r="6" fill="#fff"/>
+    <circle cx="300" cy="160" r="5" fill="#fff"/>
+
+    <g transform="translate(185, 290)" filter="url(#dropShadow)">
+      <rect x="0" y="0" width="55" height="55" rx="10" fill="url(#goldGrad)"/>
+      <circle cx="15" cy="15" r="4" fill="#1c1508"/>
+      <circle cx="40" cy="40" r="4" fill="#1c1508"/>
+      <circle cx="27.5" cy="27.5" r="4" fill="#1c1508"/>
+    </g>
+    
+    <g transform="translate(255, 290)" filter="url(#dropShadow)">
+      <rect x="0" y="0" width="55" height="55" rx="10" fill="url(#goldGrad)"/>
+      <circle cx="15" cy="15" r="4" fill="#1c1508"/>
+      <circle cx="40" cy="15" r="4" fill="#1c1508"/>
+      <circle cx="15" cy="40" r="4" fill="#1c1508"/>
+      <circle cx="40" cy="40" r="4" fill="#1c1508"/>
+    </g>
   </svg>`;
 }
 
@@ -644,7 +690,7 @@ function renderLanding(){
   return `
   <div class="landing">
     <div class="logo-container" style="margin-bottom:12px">
-      ${renderLogoSVG(58)}
+      ${renderLogoSVG(100)}
       <div class="brand-title-wrap">
         <div class="brand-eyebrow">Comercio · Construcción · Astucia</div>
         <h1 class="brand-title">catandejp</h1>
@@ -686,7 +732,7 @@ function renderLobby(){
   <div class="lobby-wrap">
     <div class="card">
       <div style="display:flex;justify-content:center;margin-bottom:12px;">
-        ${renderLogoSVG(40)}
+        ${renderLogoSVG(70)}
       </div>
       <h3 style="text-align:center">Sala de espera</h3>
       <div class="lobby-code">${STATE.code}</div>
@@ -712,7 +758,7 @@ function renderGame(){
     <div class="board-col">
       <div class="topbar">
         <div class="logo-container" style="margin-right:auto">
-          ${renderLogoSVG(28)}
+          ${renderLogoSVG(36)}
           <span class="brand-title-sm">catandejp</span>
         </div>
         <div class="turn-pill"><div class="dot" style="background:${activeP?activeP.color:'#888'}"></div><span>${activeP?esc(activeP.name):''} ${isMyTurn?'(tu turno)':''}</span></div>
@@ -1485,7 +1531,6 @@ function startRealtimeListener(){
     if(fresh){
       const nextState = typeof fresh === 'string' ? JSON.parse(fresh) : fresh;
       
-      // Sonidos de notificaciones remotas
       if (STATE && ME) {
         if (nextState.turnIndex !== lastTurnIndex) {
           const activeP = nextState.players[nextState.turnOrder ? nextState.turnOrder[nextState.turnIndex] : nextState.turnIndex];
